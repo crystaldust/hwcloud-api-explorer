@@ -12,13 +12,11 @@ sig.Key = AK
 sig.Secret = SK
 
 
-class EcsService:
+class BasicService:
     schema = 'https'
-    endpoint = f'ecs.{region}.myhuaweicloud.com'
-    url_base = f'{schema}://{endpoint}'
     _singleton = None
 
-    def construct_querystring(self):
+    def construct_querystring(self, *args):
         pass
 
     @classmethod
@@ -40,6 +38,15 @@ class EcsService:
         return res.json()
 
 
+class EcsService(BasicService):
+    schema = 'https'
+    endpoint = f'ecs.{region}.myhuaweicloud.com'
+    url_base = f'{schema}://{endpoint}'
+
+    # def construct_querystring(self, *args):
+    #     pass
+
+
 class ListServers(EcsService):
 
     def __init__(self):
@@ -48,10 +55,69 @@ class ListServers(EcsService):
         self.canonical_qs = ''
 
     def construct_querystring(self, limit=10, offset=0):
-        canonical_qs = f'limit={limit}&offset={offset}'
-        self.canonical_qs = canonical_qs
+        self.canonical_qs = f'limit={limit}&offset={offset}'
 
+
+
+# Instance specs:
+# https://support.huaweicloud.com/productdesc-ecs/ecs_01_0008.html
+
+
+class CreateOnDemandServer(EcsService):
+
+    def __init__(self):
+        self.http_method = 'POST'
+        self.canonical_uri = f'/v1/{project_id}/cloudservers'
+        self.canonical_qs = ''
+
+    def construct_querystring(self, name, vpc_id, nics, root_vol, az, image_ref='67f433d8-ed0e-4321-a8a2-a71838539e09',
+                              flavor_ref='c6.16xlarge.2', dry_run=True):
+        pass
+
+
+class ImageService(BasicService):
+    schema = 'https'
+    endpoint = f'ims.{region}.myhuaweicloud.com'
+    url_base = f'{schema}://{endpoint}'
+
+    def construct_querystring(self, *args):
+        pass
+
+
+class ListImages(ImageService):
+
+    def __init__(self):
+        self.http_method = 'GET'
+        self.canonical_uri = f'/v2/cloudimages'
+        self.canonical_qs = ''
+
+    def construct_querystring(self, imagetype='gold', visibility='public', protected='true'):
+        self.canonical_qs = f'__imagetype={imagetype}&visibility={visibility}&protected={protected}'
+
+
+class VpcService(BasicService):
+    schema = 'https'
+    endpoint = f'vpc.{region}.myhuaweicloud.com'
+    url_base = f'{schema}://{endpoint}'
+
+class ListVpcs(VpcService):
+
+    def __init__(self):
+        self.http_method = 'GET'
+        self.canonical_uri = f'{self.__class__.endpoint}/v1/{project_id}/vpcs'
+        self.canonical_qs = ''
+
+    def construct_querystring(self, limit=10):
+        self.canonical_qs = f'limit={limit}'
 
 # Sample, list servers
-servers_info = ListServers.call()
-print(len(servers_info['servers']))
+# servers_info = ListServers.call()
+# print(len(servers_info['servers']))
+# 67f433d8-ed0e-4321-a8a2-a71838539e09 CentOS 7.6 64bit
+
+# images_info = ListImages.call()
+# images = images_info['images']
+# for img in images[:10]:
+#     print(img['id'], img['name'])
+
+ListVpcs.call()
