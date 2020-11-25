@@ -20,11 +20,11 @@ class BasicService:
         pass
 
     @classmethod
-    def call(cls, *args):
+    def call(cls, *args, **kwargs):
         if not cls._singleton:
             cls._singleton = cls()
 
-        cls._singleton.construct_querystring(*args)
+        cls._singleton.construct_querystring(*args, **kwargs)
         request_url = f'{cls._singleton.__class__.url_base}{cls._singleton.canonical_uri}'
         if cls._singleton.canonical_qs:
             request_url = f'{request_url}?{cls._singleton.canonical_qs}'
@@ -58,11 +58,8 @@ class ListServers(EcsService):
         self.canonical_qs = f'limit={limit}&offset={offset}'
 
 
-
 # Instance specs:
 # https://support.huaweicloud.com/productdesc-ecs/ecs_01_0008.html
-
-
 class CreateOnDemandServer(EcsService):
 
     def __init__(self):
@@ -104,14 +101,30 @@ class ListVpcs(VpcService):
 
     def __init__(self):
         self.http_method = 'GET'
-        self.canonical_uri = f'{self.__class__.endpoint}/v1/{project_id}/vpcs'
+        self.canonical_uri = f'/v1/{project_id}/vpcs'
         self.canonical_qs = ''
 
     def construct_querystring(self, limit=10):
         self.canonical_qs = f'limit={limit}'
 
+
+class ListSubnets(VpcService):
+
+    def __init__(self):
+        self.http_method = 'GET'
+        self.canonical_uri = f'/v1/{project_id}/subnets'
+        self.canonical_qs = ''
+
+    def construct_querystring(self, limit=10, marker='', vpc_id=''):
+        self.canonical_qs = f'limit={limit}'
+        if marker:
+            self.canonical_qs += f'&marker={marker}'
+        if vpc_id:
+            self.canonical_qs += f'&vpc_id={vpc_id}'
+
+
 # Sample, list servers
-# servers_info = ListServers.call()
+servers_info = ListServers.call(limit=2)
 # print(len(servers_info['servers']))
 # 67f433d8-ed0e-4321-a8a2-a71838539e09 CentOS 7.6 64bit
 
@@ -120,4 +133,10 @@ class ListVpcs(VpcService):
 # for img in images[:10]:
 #     print(img['id'], img['name'])
 
-ListVpcs.call()
+# vpcs_info = ListVpcs.call(limit=2)
+# import json
+# print(json.dumps(vpcs_info, indent=2))
+# VPC: "id": "6de3f8c3-fa9c-40e6-ba12-52d6c5e31db0",
+
+# subnets_info = ListSubnets.call()
+# print(subnets_info)
