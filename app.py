@@ -1,7 +1,9 @@
 import requests
 from apig_sdk import signer
 from os import environ
-
+from urllib import parse
+import secrets
+import os
 
 AK = environ['AK'] if 'AK' in environ else 'YOUR_AK'
 SK = environ['SK'] if 'SK' in environ else 'YOUR_SK'
@@ -11,13 +13,16 @@ sig = signer.Signer()
 sig.Key = AK
 sig.Secret = SK
 
+print(AK)
+
 
 class BasicService:
     schema = 'https'
     _singleton = None
 
-    def construct_request_params(self, *args):
-        pass
+    def construct_request_params(self, *args, **kwargs):
+        if kwargs:
+            self.canonical_qs = parse.urlencode(kwargs)
 
     @classmethod
     def call(cls, *args, **kwargs):
@@ -56,8 +61,30 @@ class ListServers(EcsService):
         self.canonical_uri = f'/v1/{project_id}/cloudservers/detail'
         self.canonical_qs = ''
 
-    def construct_request_params(self, limit=10, offset=0):
-        self.canonical_qs = f'limit={limit}&offset={offset}'
+    # def construct_request_params(self, limit=10, offset=0):
+    #     self.canonical_qs = f'limit={limit}&offset={offset}'
+
+
+class DeleteServers(EcsService):
+
+    def __init__(self):
+        self.http_method = 'POST'
+        self.canonical_uri = f'/v1/{project_id}/cloudservers/delete'
+        self.canonical_qs = ''
+        self.req_body = ''
+
+    def construct_request_params(self, servers, delete_publicip=False, delete_volume=True):
+        req_payload = {
+            'servers': servers,
+        }
+
+        if delete_publicip:
+            req_payload['delete_publicip'] = True
+        if delete_volume:
+            req_payload['delete_volume'] = True
+
+        self.req_body = json.dumps(req_payload)
+        print(json.dumps(req_payload, indent=2))
 
 
 # Instance specs:
@@ -72,7 +99,8 @@ class CreateOnDemandServer(EcsService):
 
     def construct_request_params(self, name, vpc_id, nics, root_vol, az='cn-north-4a',
                                  security_groups=[], image_ref='67f433d8-ed0e-4321-a8a2-a71838539e09',
-                                 flavor_ref='c6.16xlarge.4', dry_run=True, public_ip='', count=1):
+                                 flavor_ref='c6.16xlarge.4', dry_run=True, public_ip='', count=1,
+                                 is_auto_rename=False, admin_pass='youshouldpasssomething!'):
         req_payload = {
             'server': {
                 'imageRef': image_ref,
@@ -84,6 +112,8 @@ class CreateOnDemandServer(EcsService):
                 'count': count,
                 'security_groups': security_groups,
                 'availability_zone': az,
+                'adminPass': admin_pass,
+                'isAutoRename': is_auto_rename,
             },
             'dry_run': 'true' if dry_run else 'false',
         }
@@ -91,7 +121,26 @@ class CreateOnDemandServer(EcsService):
             req_payload['publicip'] = public_ip
 
         self.req_body = json.dumps(req_payload)
-        print(json.dumps(req_payload, indent=2))
+        # print(json.dumps(req_payload, indent=2))
+
+
+class StopServers(EcsService):
+
+    def __init__(self):
+        self.http_method = 'POST'
+        self.canonical_uri = f'/v1/{project_id}/cloudservers/action'
+        self.canonical_qs = ''
+        self.req_body = ''
+
+    def construct_request_params(self, servers, type='SOFT'):
+        self.req_body = json.dumps(
+            {
+                'os-stop' : {
+                    'servers': servers,
+                    'type': type
+                }
+            }
+        )
 
 
 class ImageService(BasicService):
@@ -99,8 +148,8 @@ class ImageService(BasicService):
     endpoint = f'ims.{region}.myhuaweicloud.com'
     url_base = f'{schema}://{endpoint}'
 
-    def construct_request_params(self, *args):
-        pass
+    # def construct_request_params(self, *args):
+    #     pass
 
 
 class ListImages(ImageService):
@@ -126,8 +175,8 @@ class ListVpcs(VpcService):
         self.canonical_uri = f'/v1/{project_id}/vpcs'
         self.canonical_qs = ''
 
-    def construct_request_params(self, limit=10):
-        self.canonical_qs = f'limit={limit}'
+    # def construct_request_params(self, limit=10):
+    #     self.canonical_qs = f'limit={limit}'
 
 
 class ListSubnets(VpcService):
@@ -143,6 +192,24 @@ class ListSubnets(VpcService):
             self.canonical_qs += f'&marker={marker}'
         if vpc_id:
             self.canonical_qs += f'&vpc_id={vpc_id}'
+
+
+class JobService(BasicService):
+    schema = 'https'
+    endpoint = f'ecs.{region}.myhuaweicloud.com'
+    url_base = f'{schema}://{endpoint}'
+
+
+class CheckJob(JobService):
+
+    def __init__(self):
+        self.http_method = 'GET'
+        self.canonical_uri = ''
+        self.canonical_qs = ''
+
+    def construct_request_params(self, job_id):
+        self.canonical_uri = f'/v1/{project_id}/jobs/{job_id}'  # end with job_id
+
 
 
 # Sample, list servers
@@ -184,11 +251,57 @@ security_groups = [
     }
 ]
 
-create_result, status_code = CreateOnDemandServer.call('compute-node-',
-                                                       '6de3f8c3-fa9c-40e6-ba12-52d6c5e31db0',
-                                                       nics, root_volume,
-                                                       security_groups=security_groups,
-                                                       flavor_ref='c6.large.2',
-                                                       dry_run=False)
 
-print(json.dumps(create_result, indent=4), status_code)
+# create_result, status_code = CreateOnDemandServer.call('debug-dxwind-compute-node',
+#                                                        '6de3f8c3-fa9c-40e6-ba12-52d6c5e31db0',
+#                                                        nics, root_volume,
+#                                                        security_groups=security_groups,
+#                                                        flavor_ref='c6.large.2',
+#                                                        dry_run=False, count=2)
+#
+# print(json.dumps(create_result, indent=4), status_code)
+
+# job_status, status_code = CheckJob.call(job_id='ff80808175e0f5c90176029f1abe56b6')
+# print(job_status['status'], status_code)
+vpc_id = '6de3f8c3-fa9c-40e6-ba12-52d6c5e31db0'
+servers_info, status_code = ListServers.call(limit=50, name='compute-node')
+print(servers_info['count'])
+max_id = 0
+total_amount = 4
+for server in servers_info['servers']:
+    # print(server['name'], server['id'], server['addresses'][vpc_id][0]['addr'])
+    server_id_num = int(str.split(server['name'], '-')[-1])
+    if max_id < server_id_num:
+        max_id = server_id_num
+
+print(max_id, servers_info['count'])
+print(f'there are {total_amount-max_id} servers to create')
+passwd = secrets.token_urlsafe(16)
+if os.path.exists('./passwd'):
+    with open('./passwd', 'r') as f:
+        passwd = f.read()
+else:
+    with open('./passwd', 'w') as f:
+        f.write(passwd)
+print('create with passwd:', passwd)
+num_servers_to_create = total_amount - max_id
+if num_servers_to_create:
+    name = 'debug-dxwind-compute-node'
+    if num_servers_to_create == 1:
+        name += str({max_id+1}).zfill(3)
+    create_result, status_code = CreateOnDemandServer.call(,
+                                              '6de3f8c3-fa9c-40e6-ba12-52d6c5e31db0',
+                                              nics, root_volume, security_groups=security_groups,
+                                              flavor_ref='c6.large.2', dry_run=False,
+                                              count=num_servers_to_create, admin_pass=passwd)
+    print(create_result)
+else:
+    servers_info, status_code = ListServers.call(limit=60, name='debug-dxwind-compute-node')
+    # for s in servers_info['servers']:
+    #     print(s['addresses'][vpc_id][0]['addr'], '\t', s['name'])
+
+# # Dropping servers
+# dropping_server_ids = [{'id': s['id']} for s in servers_info['servers']]
+# deleting_result, status_code = DeleteServers.call(dropping_server_ids, delete_publicip=True, delete_volume=True)
+# print(deleting_result)
+
