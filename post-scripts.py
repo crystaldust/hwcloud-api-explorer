@@ -1,7 +1,8 @@
 import spur
+from spur.ssh import MissingHostKey
 from os.path import exists
-from app import ListServers
-from app import vpc_id
+from services import ListServers
+from services import vpc_id
 
 # Make sure we have the password
 if not exists('./passwd'):
@@ -31,7 +32,7 @@ for ip in target_ips:
     # stdout, stderr = p.communicate()
 
     # # Run on remote server
-    # shell = spur.SshShell(hostname=ip, username='root', password=passwd)
-    # result = shell.run(['sh', '-c', f'echo "{hosts_content}" >> /etc/hosts'])
-    # print(result.output.decode('utf-8'))
+    shell = spur.SshShell(hostname=ip, username='root', password=passwd, missing_host_key=MissingHostKey.accept)
+    result = shell.run(['sh', '-c', f'echo "{hosts_content}" >> /etc/hosts'])
+    print(result.output.decode('utf-8'))
     continue

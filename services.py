@@ -4,6 +4,7 @@ from os import environ
 from urllib import parse
 import secrets
 import os
+import json
 
 AK = environ['AK'] if 'AK' in environ else 'YOUR_AK'
 SK = environ['SK'] if 'SK' in environ else 'YOUR_SK'
@@ -13,7 +14,7 @@ sig = signer.Signer()
 sig.Key = AK
 sig.Secret = SK
 
-print(AK)
+vpc_id = '6de3f8c3-fa9c-40e6-ba12-52d6c5e31db0'
 
 
 class BasicService:
@@ -50,9 +51,6 @@ class EcsService(BasicService):
     endpoint = f'ecs.{region}.myhuaweicloud.com'
     url_base = f'{schema}://{endpoint}'
 
-    # def construct_querystring(self, *args):
-    #     pass
-
 
 class ListServers(EcsService):
 
@@ -60,9 +58,6 @@ class ListServers(EcsService):
         self.http_method = 'GET'
         self.canonical_uri = f'/v1/{project_id}/cloudservers/detail'
         self.canonical_qs = ''
-
-    # def construct_request_params(self, limit=10, offset=0):
-    #     self.canonical_qs = f'limit={limit}&offset={offset}'
 
 
 class DeleteServers(EcsService):
@@ -148,9 +143,6 @@ class ImageService(BasicService):
     endpoint = f'ims.{region}.myhuaweicloud.com'
     url_base = f'{schema}://{endpoint}'
 
-    # def construct_request_params(self, *args):
-    #     pass
-
 
 class ListImages(ImageService):
 
@@ -168,15 +160,13 @@ class VpcService(BasicService):
     endpoint = f'vpc.{region}.myhuaweicloud.com'
     url_base = f'{schema}://{endpoint}'
 
+
 class ListVpcs(VpcService):
 
     def __init__(self):
         self.http_method = 'GET'
         self.canonical_uri = f'/v1/{project_id}/vpcs'
         self.canonical_qs = ''
-
-    # def construct_request_params(self, limit=10):
-    #     self.canonical_qs = f'limit={limit}'
 
 
 class ListSubnets(VpcService):
@@ -209,99 +199,3 @@ class CheckJob(JobService):
 
     def construct_request_params(self, job_id):
         self.canonical_uri = f'/v1/{project_id}/jobs/{job_id}'  # end with job_id
-
-
-
-# Sample, list servers
-# servers_info = ListServers.call(limit=2)
-# print(len(servers_info['servers']))
-# 67f433d8-ed0e-4321-a8a2-a71838539e09 CentOS 7.6 64bit
-
-# images_info = ListImages.call()
-# images = images_info['images']
-# for img in images[:10]:
-#     print(img['id'], img['name'])
-
-# vpcs_info = ListVpcs.call(limit=2)
-# import json
-# print(json.dumps(vpcs_info, indent=2))
-# VPC: "id": "6de3f8c3-fa9c-40e6-ba12-52d6c5e31db0",
-# Subnet id: bb64d226-14a4-4e13-afcb-ccda97cdf4e5
-# Security group id: 08bc3b69-08e8-449d-ab55-0f7d141c07a0 # For XiangJi
-import json
-# subnets_info = ListSubnets.call()
-# print(json.dumps(subnets_info, indent=2))
-
-root_volume = {
-    'volumetype': 'SSD', # One of 'SSD', 'GPSSD', 'SAS'
-    'size': 256, # Unit: GB
-}
-
-# name, vpc_id, nics, root_vol, az='cn-north-4a',
-#                               security_group=[], image_ref='67f433d8-ed0e-4321-a8a2-a71838539e09',
-#                               flavor_ref='c6.16xlarge.2', dry_run=True, public_ip='', count=1
-nics = [
-    {
-        'subnet_id': 'bb64d226-14a4-4e13-afcb-ccda97cdf4e5'
-    }
-]
-security_groups = [
-    {
-        'id': '08bc3b69-08e8-449d-ab55-0f7d141c07a0'
-    }
-]
-
-
-# create_result, status_code = CreateOnDemandServer.call('debug-dxwind-compute-node',
-#                                                        '6de3f8c3-fa9c-40e6-ba12-52d6c5e31db0',
-#                                                        nics, root_volume,
-#                                                        security_groups=security_groups,
-#                                                        flavor_ref='c6.large.2',
-#                                                        dry_run=False, count=2)
-#
-# print(json.dumps(create_result, indent=4), status_code)
-
-# job_status, status_code = CheckJob.call(job_id='ff80808175e0f5c90176029f1abe56b6')
-# print(job_status['status'], status_code)
-vpc_id = '6de3f8c3-fa9c-40e6-ba12-52d6c5e31db0'
-servers_info, status_code = ListServers.call(limit=50, name='compute-node')
-print(servers_info['count'])
-max_id = 0
-total_amount = 4
-for server in servers_info['servers']:
-    # print(server['name'], server['id'], server['addresses'][vpc_id][0]['addr'])
-    server_id_num = int(str.split(server['name'], '-')[-1])
-    if max_id < server_id_num:
-        max_id = server_id_num
-
-print(max_id, servers_info['count'])
-print(f'there are {total_amount-max_id} servers to create')
-passwd = secrets.token_urlsafe(16)
-if os.path.exists('./passwd'):
-    with open('./passwd', 'r') as f:
-        passwd = f.read()
-else:
-    with open('./passwd', 'w') as f:
-        f.write(passwd)
-print('create with passwd:', passwd)
-num_servers_to_create = total_amount - max_id
-if num_servers_to_create:
-    name = 'debug-dxwind-compute-node'
-    if num_servers_to_create == 1:
-        name += str({max_id+1}).zfill(3)
-    create_result, status_code = CreateOnDemandServer.call(,
-                                              '6de3f8c3-fa9c-40e6-ba12-52d6c5e31db0',
-                                              nics, root_volume, security_groups=security_groups,
-                                              flavor_ref='c6.large.2', dry_run=False,
-                                              count=num_servers_to_create, admin_pass=passwd)
-    print(create_result)
-else:
-    servers_info, status_code = ListServers.call(limit=60, name='debug-dxwind-compute-node')
-    # for s in servers_info['servers']:
-    #     print(s['addresses'][vpc_id][0]['addr'], '\t', s['name'])
-
-# # Dropping servers
-# dropping_server_ids = [{'id': s['id']} for s in servers_info['servers']]
-# deleting_result, status_code = DeleteServers.call(dropping_server_ids, delete_publicip=True, delete_volume=True)
-# print(deleting_result)
-
