@@ -1,10 +1,21 @@
-import spur
+import platform
 import re
+import subprocess
+import spur
 from spur.ssh import MissingHostKey
 from os.path import exists
 from services import ListServers
 from services import vpc_id
 from pathlib import Path
+
+hostname = platform.node()
+cat_process = subprocess.Popen(['cat', '/etc/hosts'], stdout=subprocess.PIPE)
+grep_process = subprocess.Popen(['grep', hostname], stdin=cat_process.stdout, stdout=subprocess.PIPE)
+stdout, _ = grep_process.communicate()
+compute_node_hosts_content = ''
+manage_node_hosts_content = stdout.decode('utf-8').strip() + '\n'  # start with the host ip line
+
+prefix = 'dxwind-compute-node'
 
 user_already_exists_pattern = re.compile("useradd: user '.*' already exists")
 home = str(Path.home())
@@ -20,14 +31,14 @@ if not passwd:
     raise Exception("Password empty")
 
 
-servers_info, status_code = ListServers.call(limit=50, name='debug-dxwind-compute-node')
+servers_info, status_code = ListServers.call(limit=50, name=prefix)
 print(servers_info, status_code)
-hosts_content = ''
+
 target_ips = []
 for s in servers_info['servers']:
     server_addr = s['addresses'][vpc_id][0]['addr']
     server_name = s['name']
-    hosts_content += f'{server_addr}\t{server_name}\n'
+    compute_node_hosts_content += f'{server_addr}\t{server_name}\n'
     target_ips.append(server_addr)
 
 pubkey = ''
@@ -47,7 +58,7 @@ for ip in target_ips:
 
     # Configure the hosts
     shell = spur.SshShell(hostname=ip, username='root', password=passwd, missing_host_key=MissingHostKey.accept)
-    result = shell.run(['sh', '-c', f'echo "{hosts_content}" >> /etc/hosts'])
+    result = shell.run(['sh', '-c', f'echo "{manage_node_hosts_content + compute_node_hosts_content}" >> /etc/hosts'])
     print(result.output.decode('utf-8'))
 
     # Configure user 'op'
@@ -82,4 +93,9 @@ for ip in target_ips:
     # Create 
 
 
+subprocess.Popen(['sh', '-c', f'echo "{compute_node_hosts_content}" >> /etc/hosts'])
 
+subprocess.Popen(['systemctl', 'start', 'munge'])
+subprocess.Popen(['systemctl', 'restart', 'munge'])
+subprocess.Popen(['systemctl', 'start', 'slurmd'])
+subprocess.Popen(['systemctl', 'restart', 'munge'])

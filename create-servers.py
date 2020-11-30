@@ -3,6 +3,12 @@ import json
 import secrets
 import os
 
+prefix = 'dxwind-compute-node'
+
+if os.path.exists('./prefix'):
+    with open('./prefix', 'r') as f:
+        prefix = f.read()
+
 root_volume = {
     'volumetype': 'SSD',  # One of 'SSD', 'GPSSD', 'SAS'
     'size': 100,  # Unit: GB
@@ -18,13 +24,13 @@ security_groups = [
     }
 ]
 
-servers_info, status_code = ListServers.call(limit=50, name='debug-dxwind-compute-node')
+servers_info, status_code = ListServers.call(limit=50, name=prefix)
 print(servers_info['count'])
 max_id = 0
-total_amount = 2
+total_amount = 3
 for server in servers_info['servers']:
     # print(server['name'], server['id'], server['addresses'][vpc_id][0]['addr'])
-    server_id_num = int(str.split(server['name'], 'debug-dxwind-compute-node')[-1])
+    server_id_num = int(str.split(server['name'], prefix)[-1])
     if max_id < server_id_num:
         max_id = server_id_num
 
@@ -55,9 +61,9 @@ publicip = {
 image_ref = '1a752e88-6fdc-426b-b764-f811664db62d'  # Customized image node-nwp
 # image_ref = '6de3f8c3-fa9c-40e6-ba12-52d6c5e31db0'  # CentOS 7.5
 if num_servers_to_create:
-    name = 'debug-dxwind-compute-node[1,1]'  # start from 1, the num takes 1 bit
+    name = f'{prefix}[1,1]'  # start from 1, the num takes 1 bit
     if max_id >= 1:
-        name = f'debug-dxwind-compute-node[{max_id+1}, 1]'
+        name = f'{prefix}[{max_id+1},1]'
     try:
         create_result, status_code = CreateOnDemandServer.call(name, vpc_id, nics,
                                                                root_volume, security_groups=security_groups, image_ref=image_ref,
@@ -68,6 +74,6 @@ if num_servers_to_create:
         print(e)
 
 else:
-    servers_info, status_code = ListServers.call(limit=60, name='debug-dxwind-compute-node')
+    servers_info, status_code = ListServers.call(limit=60, name=prefix)
     for s in servers_info['servers']:
         print(s['addresses'][vpc_id][0]['addr'], '\t', s['name'])

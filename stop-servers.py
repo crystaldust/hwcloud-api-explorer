@@ -1,6 +1,8 @@
 from services import StopServers, ListServers
 
-servers_info, status_code = ListServers.call(limit=50, name='debug-dxwind-compute-node')
+prefix = 'dxwind-compute-node'
+
+servers_info, status_code = ListServers.call(limit=50, name=prefix)
 if not servers_info['count']:
     print('No servers found, skip stopping')
     exit(0)
