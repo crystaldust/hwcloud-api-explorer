@@ -4,8 +4,8 @@ import secrets
 import os
 
 root_volume = {
-    'volumetype': 'SSD', # One of 'SSD', 'GPSSD', 'SAS'
-    'size': 256, # Unit: GB
+    'volumetype': 'SSD',  # One of 'SSD', 'GPSSD', 'SAS'
+    'size': 100,  # Unit: GB
 }
 nics = [
     {
@@ -24,7 +24,7 @@ max_id = 0
 total_amount = 2
 for server in servers_info['servers']:
     # print(server['name'], server['id'], server['addresses'][vpc_id][0]['addr'])
-    server_id_num = int(str.split(server['name'], '-')[-1])
+    server_id_num = int(str.split(server['name'], 'debug-dxwind-compute-node')[-1])
     if max_id < server_id_num:
         max_id = server_id_num
 
@@ -52,13 +52,15 @@ publicip = {
     }
 }
 
-image_ref = '0c5eea8e-b56f-410e-8a6e-c960f75320db'  # Customized image node-nwp
+image_ref = '1a752e88-6fdc-426b-b764-f811664db62d'  # Customized image node-nwp
 # image_ref = '6de3f8c3-fa9c-40e6-ba12-52d6c5e31db0'  # CentOS 7.5
 if num_servers_to_create:
     name = 'debug-dxwind-compute-node[1,1]'  # start from 1, the num takes 1 bit
+    if max_id >= 1:
+        name = f'debug-dxwind-compute-node[{max_id+1}, 1]'
     try:
-        create_result, status_code = CreateOnDemandServer.call(name, image_ref, nics,
-                                                               root_volume, security_groups=security_groups,
+        create_result, status_code = CreateOnDemandServer.call(name, vpc_id, nics,
+                                                               root_volume, security_groups=security_groups, image_ref=image_ref,
                                                                flavor_ref='s6.small.1', dry_run=False, # public_ip=publicip,
                                                                count=num_servers_to_create, admin_pass=passwd)
         print(create_result)

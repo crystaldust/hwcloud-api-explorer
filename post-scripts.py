@@ -1,9 +1,12 @@
 import spur
+import re
 from spur.ssh import MissingHostKey
 from os.path import exists
 from services import ListServers
 from services import vpc_id
 from pathlib import Path
+
+user_already_exists_pattern = re.compile("useradd: user '.*' already exists")
 home = str(Path.home())
 
 # Make sure we have the password
@@ -49,8 +52,11 @@ for ip in target_ips:
 
     # Configure user 'op'
     shell = spur.SshShell(hostname=ip, username='root', password=passwd, missing_host_key=MissingHostKey.accept)
-    result = shell.run(['sh', '-c', 'useradd -m -G root op'])
-    print(result.output.decode('utf-8'))
+    result = shell.run(['sh', '-c', 'useradd -m -G root op'], allow_error=True)
+    if result.return_code != 0 and not re.match(user_already_exists_pattern, result.stderr_output.decode('utf-8')):
+        raise Exception(result.stderr_output.decode('utf-8'))
+    else:
+        print(result.output.decode('utf-8'))
 
     result = shell.run(['sh', '-c', 'mkdir /home/op/.ssh -p'])
     print(result.output.decode('utf-8'))
@@ -59,6 +65,18 @@ for ip in target_ips:
     print(result.output.decode('utf-8'))
 
     result = shell.run(['sh', '-c', f'echo "{pubkey}" > /home/op/.ssh/id_rsa.pub'])
+    print(result.output.decode('utf-8'))
+
+    result = shell.run(['sh', '-c', 'systemctl start munge'])
+    print(result.output.decode('utf-8'))
+
+    result = shell.run(['sh', '-c', 'systemctl start munge'])
+    print(result.output.decode('utf-8'))
+
+    result = shell.run(['sh', '-c', 'systemctl start slurmd'])
+    print(result.output.decode('utf-8'))
+
+    result = shell.run(['sh', '-c', 'systemctl restart slurmd'])
     print(result.output.decode('utf-8'))
 
     # Create 
