@@ -3,6 +3,8 @@ from spur.ssh import MissingHostKey
 from os.path import exists
 from services import ListServers
 from services import vpc_id
+from pathlib import Path
+home = str(Path.home())
 
 # Make sure we have the password
 if not exists('./passwd'):
@@ -24,6 +26,15 @@ for s in servers_info['servers']:
     server_name = s['name']
     hosts_content += f'{server_addr}\t{server_name}\n'
     target_ips.append(server_addr)
+
+pubkey = ''
+with open(f'{home}/.ssh/id_rsa.pub', 'r') as f:
+    pubkey = f.read()
+
+if not pubkey:
+    raise Exception('Failed to read pubkey, make sure $HOME/.ssh/id_rsa.pub exits!')
+
+
 for ip in target_ips:
     # # Test locally
     # from subprocess import Popen, PIPE
@@ -31,8 +42,20 @@ for ip in target_ips:
     #           stdout=PIPE, stderr=PIPE)
     # stdout, stderr = p.communicate()
 
-    # # Run on remote server
+    # Configure the hosts
     shell = spur.SshShell(hostname=ip, username='root', password=passwd, missing_host_key=MissingHostKey.accept)
     result = shell.run(['sh', '-c', f'echo "{hosts_content}" >> /etc/hosts'])
     print(result.output.decode('utf-8'))
-    continue
+
+    # Configure user 'op'
+    shell = spur.SshShell(hostname=ip, username='root', password=passwd, missing_host_key=MissingHostKey.accept)
+    result = shell.run(['sh', '-c', 'useradd -m -G root op'])
+    print(result.output.decode('utf-8'))
+
+    result = shell.run(['sh', '-c', 'mkdir /home/op/.ssh -p'])
+    print(result.output.decode('utf-8'))
+
+    result = shell.run(['sh', '-c', f'echo "{pubkey}" >> /home/op/.ssh/authorized_keys'])
+    print(result.output.decode('utf-8'))
+
+

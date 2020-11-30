@@ -43,7 +43,14 @@ class BasicService:
         # If uri already takes query string, then don't pass r.query to 'params' argument
         # or it will be handled twice, the value becomes a list with 2 same elements.
         res = requests.request(r.method, request_url, headers=r.headers, data=r.body)
-        return res.json(), res.status_code
+        print('original res:', res.text, res.status_code)
+        res_obj = res.text
+        try:
+            res_obj = res.json()
+        except Exception:
+            pass
+
+        return res_obj, res.status_code
 
 
 class EcsService(BasicService):
@@ -151,8 +158,8 @@ class ListImages(ImageService):
         self.canonical_uri = f'/v2/cloudimages'
         self.canonical_qs = ''
 
-    def construct_request_params(self, imagetype='gold', visibility='public', protected='true'):
-        self.canonical_qs = f'__imagetype={imagetype}&visibility={visibility}&protected={protected}'
+    # def construct_request_params(self, image_type='gold', visibility='public', protected='true'):
+    #     self.canonical_qs = f'__imagetype={image_type}&visibility={visibility}&protected={protected}'
 
 
 class VpcService(BasicService):
