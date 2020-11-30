@@ -55,10 +55,7 @@ publicip = {
 image_ref = '0c5eea8e-b56f-410e-8a6e-c960f75320db'  # Customized image node-nwp
 # image_ref = '6de3f8c3-fa9c-40e6-ba12-52d6c5e31db0'  # CentOS 7.5
 if num_servers_to_create:
-    name = 'debug-dxwind-compute-node'
-    if num_servers_to_create == 1 and max_id != 0:
-        digits = str(max_id+1).zfill(3)
-        name = f'{name}-{digits}'
+    name = 'debug-dxwind-compute-node[1,1]'  # start from 1, the num takes 1 bit
     try:
         create_result, status_code = CreateOnDemandServer.call(name, image_ref, nics,
                                                                root_volume, security_groups=security_groups,
@@ -66,7 +63,7 @@ if num_servers_to_create:
                                                                count=num_servers_to_create, admin_pass=passwd)
         print(create_result)
     except Exception as e:
-        print(e),ta
+        print(e)
 
 else:
     servers_info, status_code = ListServers.call(limit=60, name='debug-dxwind-compute-node')

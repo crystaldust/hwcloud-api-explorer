@@ -58,4 +58,10 @@ for ip in target_ips:
     result = shell.run(['sh', '-c', f'echo "{pubkey}" >> /home/op/.ssh/authorized_keys'])
     print(result.output.decode('utf-8'))
 
+    result = shell.run(['sh', '-c', f'echo "{pubkey}" > /home/op/.ssh/id_rsa.pub'])
+    print(result.output.decode('utf-8'))
+
+    # Create 
+
+
 
